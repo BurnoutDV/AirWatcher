@@ -1,0 +1,5 @@
+RPi.GPIO >= 0.7.1
+enviroplus
+numpy
+smbus
+mysql-connector-python
