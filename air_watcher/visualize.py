@@ -1,0 +1,176 @@
+#!/usr/bin/env python3
+# coding: utf-8
+
+# Copyright 2021 by BurnoutDV, <development@burnoutdv.com>
+#
+# This file is part of AirWatcher.
+#
+# AirWatcher is free software: you can redistribute
+# it and/or modify it under the terms of the GNU General Public
+# License as published by the Free Software Foundation, either
+# version 3 of the License, or (at your option) any later version.
+#
+# AirWatcher is distributed in the hope that it will
+# be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import date, datetime, time
+import json
+
+# per https://matplotlib.org/stable/tutorials/introductory/usage.html#sphx-glr-tutorials-introductory-usage-py
+
+__dpi = 300
+__time_gate = date(2022, 5, 7)
+
+"""
+This is a rather useless piece of software, just see it as set of scripts to quickly asses data and visualize some
+of it. This is actually the first time i ever touched matplot lib and its definetly not needed for this project but
+i wanted to see the values i got from my first set of scripts. For now this is hardcoded to only displays value of
+today
+"""
+
+
+def plot_weather(raw_values: dict, output="weather.png"):
+    weather_over_time = {}
+    for iso_data in raw_values:
+        that_date = datetime.fromisoformat(iso_data)
+        if that_date > datetime.combine(__time_gate, time()) or True:
+            weather_over_time[that_date] = raw_values[iso_data]['weather']
+
+    fig, ax1 = plt.subplots()
+    ax1.set_xlabel("Time")
+    plt.xticks(rotation=45)
+    ax1.set_ylabel("Temperature C /Humidity %")
+    ax1.set_title("Temperature over Time")
+
+    ax2 = ax1.twinx()
+    ax2.set_ylabel("Pressure hPa")
+
+    times = [y for y in weather_over_time.keys()]
+
+    l1, = ax1.plot([y for y in weather_over_time.keys()], [x['temperature'] for x in weather_over_time.values()], color="r")
+    l2, = ax2.plot([y for y in weather_over_time.keys()], [x['pressure'] for x in weather_over_time.values()], color="b")
+    l3, = ax1.plot([y for y in weather_over_time.keys()], [x['humidity'] for x in weather_over_time.values()], color="g")
+
+    ax1.legend([l1, l3], ["Temperature", "Humidity"])
+    ax2.legend([l2], ['Pressure'], loc="lower left")
+    xformatter = mdates.DateFormatter('%H:%M')
+    plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
+    plt.savefig(output, dpi=__dpi)
+
+
+def plot_particles(raw_values: dict, output="particles.png"):
+    particles_over_time = {}
+    for iso_data in raw_values:
+        that_date = datetime.fromisoformat(iso_data)
+        if that_date > datetime.combine(__time_gate, time()):
+            particles_over_time[that_date] = raw_values[iso_data]['particles']['m3']['atmo']
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel("Time")
+    plt.xticks(rotation=45)
+    ax.set_ylabel("n Particles")
+    ax.set_title("Particles per size overtime")
+
+    times = [y for y in particles_over_time.keys()]
+
+    l1, = ax.plot(times, [x['1.0'] for x in particles_over_time.values()])
+    l2, = ax.plot(times, [x['2.5'] for x in particles_over_time.values()])
+    l3, = ax.plot(times, [x['10'] for x in particles_over_time.values()])
+    ax.legend([l1, l2, l3], [
+        "PM1.0 ug/m3 (ultrafine particles)",
+        "PM2.5 ug/m3 (combustion particles, organic compounds, metals)",
+        "PM10 ug/m3  (dust, pollen, mould spores)"
+    ])
+    xformatter = mdates.DateFormatter('%H:%M')
+    plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
+    plt.savefig(output, dpi=__dpi)
+
+
+def plot_gas(raw_values, output="gases.png"):
+    gases_over_time = {}
+    approx_over_time = {}
+    for iso_data in raw_values:
+        that_date = datetime.fromisoformat(iso_data)
+        if that_date > datetime.combine(__time_gate, time()):
+            gases_over_time[that_date] = raw_values[iso_data]['gas']
+            if 'approx_gas' in raw_values[iso_data]:
+                approx_over_time[that_date] = raw_values[iso_data]['approx_gas']
+            else:
+                approx_over_time[that_date] = {"NO2": 0.0, "CO": 0.0, "NH3": 0.0}
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, constrained_layout=True)
+    ax1.set_xlabel("Time")
+    plt.xticks(rotation=45)
+    ax1.set_ylabel("sensor output in kOhm")
+    ax1.set_title("Gas Sensor readings")
+
+    times = [y for y in gases_over_time.keys()]
+
+    l1, = ax1.plot(times, [x['oxidising'] for x in gases_over_time.values()], "g")
+    l2, = ax1.plot(times, [x['reducing'] for x in gases_over_time.values()], "r")
+    l3, = ax1.plot(times, [x['nh3'] for x in gases_over_time.values()], "b")
+
+    ax1.legend([l1, l2, l3], [
+        "reducing gasses",
+        "oxidising gases",
+        "ammonia"
+    ], loc="center right")
+
+    ax2.set_xlabel("Time")
+    ax2.set_ylabel("Approximated ppm")
+    ax2.set_title("Approximated Gas")
+    l4, = ax2.plot(times, [x['NO2'] for x in approx_over_time.values()], "c")
+    l5, = ax2.plot(times, [x['CO'] for x in approx_over_time.values()], "m")
+
+    ax3 = ax2.twinx()
+    l6, = ax3.plot(times, [x['NH3'] for x in approx_over_time.values()], "y")
+    ax2.legend([l4, l5], ["NO2", "CO"], loc="lower left")
+    ax3.legend([l6], ["NH3"], loc="upper right")
+
+    xformatter = mdates.DateFormatter('%H:%M')
+    plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
+    plt.gcf().axes[1].xaxis.set_major_formatter(xformatter)
+    plt.savefig(output, dpi=__dpi)
+
+
+def plot_light(raw_values: dict, output="light.png"):
+    light_over_time = {}
+    for iso_data in raw_values:
+        that_date = datetime.fromisoformat(iso_data)
+        if that_date > datetime.combine(__time_gate, time()):
+            light_over_time[that_date] = raw_values[iso_data]['light']
+
+    fig, ax1 = plt.subplots()
+    ax1.set_xlabel("Time")
+    plt.xticks(rotation=45)
+    ax1.set_ylabel("Lux")
+    ax1.set_title("Light over Time")
+
+    times = [y for y in light_over_time.keys()]
+
+    l1, = ax1.plot(times, [x['lux'] for x in light_over_time.values()], color="y")
+    l2, = ax1.plot(times, [x['ir'] for x in light_over_time.values()], color="r")
+    ax1.legend([l1, l2], ["Light (Visible+IR)", "Infrared"])
+    xformatter = mdates.DateFormatter('%H:%M')
+    plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
+    plt.savefig(output, dpi=__dpi)
+
+
+if __name__ == "__main__":
+    with open("some_values.json", "r") as raw_file:
+        raw_data = json.load(raw_file)
+
+    plot_weather(raw_data)
+    plot_particles(raw_data)
+    plot_gas(raw_data)
+    plot_light(raw_data)
+
