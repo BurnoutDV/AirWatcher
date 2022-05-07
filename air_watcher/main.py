@@ -23,6 +23,8 @@
 from sensors import SensorBundle
 import logging
 import json
+import os
+import datetime
 
 save_path = "values.json"
 
@@ -33,11 +35,21 @@ logging.basicConfig(
     filename="sensors.log")
 
 if __name__ == "__main__":
-    print("Initialising Sensor")
-    sensor = SensorBundle()
-    print("Reading all")
-    all_raw = sensor.get_all()
+    logging.info("Waking up, priming sensors...")
+    sensor = SensorBundle(warmup_cycles=15)
+    logging.info(f"Sensors ready, warming up {sensor.warmup_cycles} times, then reading")
+    all_raw = sensor.get_all(condensed=True)
+
+    now = datetime.datetime.now().isoformat()
+    history = {}
+    if os.path.isfile(save_path):
+        with open(save_path, "r") as save_game:
+            try:
+                history = json.load(save_game)
+            except json.JSONDecodeError:
+                history = {}
     with open(save_path, "w") as save_game:
-        json.dump(all_raw, save_game, indent=3)
-    print(f"Writing to {save_path} completed")
+        history[now] = all_raw
+        json.dump(history, save_game, indent=2)
+    logging.info(f"Writing to {save_path} completed, new len is {len(history)}")
 

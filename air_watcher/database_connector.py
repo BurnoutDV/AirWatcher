@@ -19,3 +19,24 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
+
+import json
+import mysql.connector as db
+
+class DatabaseHandler:
+    def __init__(self, config_path: str, username=None, password=None, database=None):
+        settings = {}
+        if config_path:
+            with open(config_path, "r") as conf_fh:
+                settings = json.load(conf_fh)  # i was about to write exception handling, no, when it fails it fails
+        # direct parameters have priority over setting file
+        for attr in ['username', 'password', 'database']:
+            if not getattr(self, attr) and attr in settings:
+                setattr(self, attr, settings[attr])
+            locals()
+        self.connection = db.connect(
+            user=username,
+            password=password,
+            host="localhost",
+            database=database
+        )
