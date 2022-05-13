@@ -23,6 +23,7 @@
 import json
 import mysql.connector as db
 
+
 class DatabaseHandler:
     def __init__(self, config_path: str, username=None, password=None, database=None):
         settings = {}

@@ -21,6 +21,7 @@
 # @license GPL-3.0-only <https://www.gnu.org/licenses/gpl-3.0.en.html>
 
 from sensors import SensorBundle
+from local_database import LocalCache
 import logging
 import json
 import os
@@ -40,7 +41,7 @@ if __name__ == "__main__":
     logging.info(f"Sensors ready, warming up {sensor.warmup_cycles} times, then reading")
     all_raw = sensor.get_all(condensed=True)
 
-    now = datetime.datetime.now().isoformat()
+    now = datetime.datetime.now()
     history = {}
     if os.path.isfile(save_path):
         with open(save_path, "r") as save_game:
@@ -49,7 +50,13 @@ if __name__ == "__main__":
             except json.JSONDecodeError:
                 history = {}
     with open(save_path, "w") as save_game:
-        history[now] = all_raw
+        history[now.isoformat()] = all_raw
         json.dump(history, save_game, indent=2)
     logging.info(f"Writing to {save_path} completed, new len is {len(history)}")
+    db_path = "local_cache.db"
+    logging.info(f"Experimental Database Connection to {db_path}")
+    db = LocalCache(db_path)
+    db.insert_block(all_raw, now)
+    logging.info(json.dumps(all_raw['particles']['m3']['atmo'], indent=2))
+    db.close()
 

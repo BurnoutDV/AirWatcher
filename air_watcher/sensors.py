@@ -184,22 +184,22 @@ class SensorBundle:
         """
         if self.demo:
             if reduced:
-                return {'m3': {'atmo': {1.0: 4, 2.5: 6, 10: 6}}}
+                return {'m3': {'atmo': {'1.0': 4, '2.5': 6, '10': 6}}}
             else:
                 return {"m3": {
-                            "atmo": {1.0: 4, 2.5: 6, 10: 6},
-                            "non-atmo": {1.0: 4, 2.5: 6, 10: 6}
+                            "atmo": {'1.0': 4, '2.5': 6, '10': 6},
+                            "non-atmo": {'1.0': 4, '2.5': 6, '10': 6}
                             },
-                        "1l": {0.3: 140, 0.5: 130, 1.0: 13, 2.5: 0, 5: 0, 10: 0}
+                        "1l": {'0.3': 140, '0.5': 130, '1.0': 13, '2.5': 0, '5': 0, '10': 0}
                 }  # apartment measurement 06.05.2022 14:39
         raw = self.particle.read()
         if reduced:
             return {
                 'm3': {
                     'atmo': {
-                        1.0: raw.pm_ug_per_m3(1.0, True),
-                        2.5: raw.pm_ug_per_m3(2.5, True),
-                        10: raw.pm_ug_per_m3(None, True),  # questionable
+                        '1.0': raw.pm_ug_per_m3(1.0, True),
+                        '2.5': raw.pm_ug_per_m3(2.5, True),
+                        '10': raw.pm_ug_per_m3(None, True),  # questionable
                     }
                 }
             }
@@ -207,23 +207,23 @@ class SensorBundle:
             return {
                 'm3': {
                     'atmo': {
-                        1.0: raw.pm_ug_per_m3(1.0, True),
-                        2.5: raw.pm_ug_per_m3(2.5, True),
-                        10: raw.pm_ug_per_m3(None, True),  # questionable
+                        '1.0': raw.pm_ug_per_m3(1.0, True),
+                        '2.5': raw.pm_ug_per_m3(2.5, True),
+                        '10': raw.pm_ug_per_m3(None, True),  # questionable
                     },
                     'non-atmo': {
-                        1.0: raw.pm_ug_per_m3(1.0, False),
-                        2.5: raw.pm_ug_per_m3(2.5, False),
-                        10: raw.pm_ug_per_m3(10, False),
+                        '1.0': raw.pm_ug_per_m3(1.0, False),
+                        '2.5': raw.pm_ug_per_m3(2.5, False),
+                        '10': raw.pm_ug_per_m3(10, False),
                     }
                 },
                 '1l': {
-                    0.3: raw.pm_per_1l_air(0.3),
-                    0.5: raw.pm_per_1l_air(0.5),
-                    1.0: raw.pm_per_1l_air(1.0),
-                    2.5: raw.pm_per_1l_air(2.5),
-                    5: raw.pm_per_1l_air(5),
-                    10: raw.pm_per_1l_air(10),
+                    '0.3': raw.pm_per_1l_air(0.3),
+                    '0.5': raw.pm_per_1l_air(0.5),
+                    '1.0': raw.pm_per_1l_air(1.0),
+                    '2.5': raw.pm_per_1l_air(2.5),
+                    '5': raw.pm_per_1l_air(5),
+                    '10': raw.pm_per_1l_air(10),
                 }
             }
 

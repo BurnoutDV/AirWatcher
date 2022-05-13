@@ -24,11 +24,16 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import date, datetime, time
 import json
+import os
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 # per https://matplotlib.org/stable/tutorials/introductory/usage.html#sphx-glr-tutorials-introductory-usage-py
 
 __dpi = 300
-__time_gate = date(2022, 5, 7)
+__time_gate = date(2022, 5, 5)
 
 """
 This is a rather useless piece of software, just see it as set of scripts to quickly asses data and visualize some
@@ -38,7 +43,7 @@ today
 """
 
 
-def plot_weather(raw_values: dict, output="weather.png"):
+def plot_weather(raw_values: dict, output="weather.png", day_only=True):
     weather_over_time = {}
     for iso_data in raw_values:
         that_date = datetime.fromisoformat(iso_data)
@@ -62,17 +67,19 @@ def plot_weather(raw_values: dict, output="weather.png"):
 
     ax1.legend([l1, l3], ["Temperature", "Humidity"])
     ax2.legend([l2], ['Pressure'], loc="lower left")
-    xformatter = mdates.DateFormatter('%H:%M')
-    plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
+    if day_only:
+        xformatter = mdates.DateFormatter('%H:%M')
+        plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
     plt.savefig(output, dpi=__dpi)
 
 
-def plot_particles(raw_values: dict, output="particles.png"):
+def plot_particles(raw_values: dict, output="particles.png", day_only=True):
     particles_over_time = {}
     for iso_data in raw_values:
         that_date = datetime.fromisoformat(iso_data)
         if that_date > datetime.combine(__time_gate, time()):
-            particles_over_time[that_date] = raw_values[iso_data]['particles']['m3']['atmo']
+            if 'particles' in raw_values[iso_data]:
+                particles_over_time[that_date] = raw_values[iso_data]['particles']['m3']['atmo']
 
     fig, ax = plt.subplots()
     ax.set_xlabel("Time")
@@ -90,12 +97,13 @@ def plot_particles(raw_values: dict, output="particles.png"):
         "PM2.5 ug/m3 (combustion particles, organic compounds, metals)",
         "PM10 ug/m3  (dust, pollen, mould spores)"
     ])
-    xformatter = mdates.DateFormatter('%H:%M')
-    plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
+    if day_only:
+        xformatter = mdates.DateFormatter('%H:%M')
+        plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
     plt.savefig(output, dpi=__dpi)
 
 
-def plot_gas(raw_values, output="gases.png"):
+def plot_gas(raw_values, output="gases.png", day_only=True):
     gases_over_time = {}
     approx_over_time = {}
     for iso_data in raw_values:
@@ -136,13 +144,14 @@ def plot_gas(raw_values, output="gases.png"):
     ax2.legend([l4, l5], ["NO2", "CO"], loc="lower left")
     ax3.legend([l6], ["NH3"], loc="upper right")
 
-    xformatter = mdates.DateFormatter('%H:%M')
-    plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
-    plt.gcf().axes[1].xaxis.set_major_formatter(xformatter)
+    if day_only:
+        xformatter = mdates.DateFormatter('%H:%M')
+        plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
+        plt.gcf().axes[1].xaxis.set_major_formatter(xformatter)
     plt.savefig(output, dpi=__dpi)
 
 
-def plot_light(raw_values: dict, output="light.png"):
+def plot_light(raw_values: dict, output="light.png", day_only=True):
     light_over_time = {}
     for iso_data in raw_values:
         that_date = datetime.fromisoformat(iso_data)
@@ -160,15 +169,52 @@ def plot_light(raw_values: dict, output="light.png"):
     l1, = ax1.plot(times, [x['lux'] for x in light_over_time.values()], color="y")
     l2, = ax1.plot(times, [x['ir'] for x in light_over_time.values()], color="r")
     ax1.legend([l1, l2], ["Light (Visible+IR)", "Infrared"])
-    xformatter = mdates.DateFormatter('%H:%M')
-    plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
+    if day_only:
+        xformatter = mdates.DateFormatter('%H:%M')
+        plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
     plt.savefig(output, dpi=__dpi)
 
 
-if __name__ == "__main__":
-    with open("some_values.json", "r") as raw_file:
-        raw_data = json.load(raw_file)
+def _calc_approx_gas(gas_readings: dict):
+    from math import log10
+    # stolen here: https://forums.pimoroni.com/t/pms5003-gas-measurement-with-an-enviro-on-a-raspberry/15868/5
+    # oxidising, NO2: ppm = Rs / (6.5 * R0)
+    NO2 = gas_readings['oxidising'] / 6.5 / 20000
+    # R0 chosen to give value approx 0.01 in fresh air (detectable = 0.05 to 10)
+    # reducing,CO: ppm = 10^((log10(Rs / 3.5 / R0)) / -0.845 )
+    CO = 10 ** ((log10(gas_readings['reducing'] / 3.5 / 150000)) / -0.845)
+    # R0 chosen to give value approx 2 in fresh air (detectable = 1 to 1000)
+    # NH3: ppm = =10^((log10(Rs / 0.77 / R0)) / -0.5335 )
+    NH3 = 10 ** ((log10(gas_readings['nh3'] / 0.77 / 570000)) / -0.5335)
+    # R0 chosen to give value approx 2 in fresh air (detectable = 1 to 300)
+    return {
+        'NO2': NO2,
+        'CO': CO,
+        'NH3': NH3
+    }
 
+
+if __name__ == "__main__":
+    file = "local_cache.db"
+    if os.path.isfile(f"./{file}"):
+        db_path = f"./{file}"
+    elif os.path.isfile(f"../{file}"):
+        db_path = f"../{file}"
+    else:
+        logger.warning("Visualize: cannot run Visualize:MAIN because 'local.db' cannot be found")
+        exit(1)
+    # local import, dont do this at home kids
+    import local_database
+    import sqlite3
+    try:
+        local_db = local_database.LocalCache(db_path)
+    except sqlite3.OperationalError:
+        logger.error("Found local database but couldnt load the sqlite file")
+        exit(2)
+    raw_data = local_db.fetch_by_aoe_date(datetime.today(), 3600*48)  # last 24 hours
+    # calculating the approximation of gas that is not written into the database
+    for key in raw_data:
+        raw_data[key]['approx_gas'] = _calc_approx_gas(raw_data[key]['gas'])
     plot_weather(raw_data)
     plot_particles(raw_data)
     plot_gas(raw_data)
