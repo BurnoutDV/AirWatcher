@@ -57,6 +57,5 @@ if __name__ == "__main__":
     logging.info(f"Experimental Database Connection to {db_path}")
     db = LocalCache(db_path)
     db.insert_block(all_raw, now)
-    logging.info(json.dumps(all_raw['particles']['m3']['atmo'], indent=2))
     db.close()
 

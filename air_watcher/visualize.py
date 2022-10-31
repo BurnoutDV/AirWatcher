@@ -22,18 +22,17 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 import json
-import os
 import logging
+import os
+import sys
 
 
 logger = logging.getLogger(__name__)
 
 # per https://matplotlib.org/stable/tutorials/introductory/usage.html#sphx-glr-tutorials-introductory-usage-py
 
-__dpi = 300
-__time_gate = date(2022, 5, 5)
 
 """
 This is a rather useless piece of software, just see it as set of scripts to quickly asses data and visualize some
@@ -43,12 +42,11 @@ today
 """
 
 
-def plot_weather(raw_values: dict, output="weather.png", day_only=True):
+def plot_weather(raw_values: dict, output="weather.png", day_only=True, dpi=300):
     weather_over_time = {}
     for iso_data in raw_values:
         that_date = datetime.fromisoformat(iso_data)
-        if that_date > datetime.combine(__time_gate, time()) or True:
-            weather_over_time[that_date] = raw_values[iso_data]['weather']
+        weather_over_time[that_date] = raw_values[iso_data]['weather']
 
     fig, ax1 = plt.subplots()
     ax1.set_xlabel("Time")
@@ -70,16 +68,15 @@ def plot_weather(raw_values: dict, output="weather.png", day_only=True):
     if day_only:
         xformatter = mdates.DateFormatter('%H:%M')
         plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
-    plt.savefig(output, dpi=__dpi)
+    plt.savefig(output, dpi=dpi)
 
 
-def plot_particles(raw_values: dict, output="particles.png", day_only=True):
+def plot_particles(raw_values: dict, output="particles.png", day_only=True, dpi=300):
     particles_over_time = {}
     for iso_data in raw_values:
         that_date = datetime.fromisoformat(iso_data)
-        if that_date > datetime.combine(__time_gate, time()):
-            if 'particles' in raw_values[iso_data]:
-                particles_over_time[that_date] = raw_values[iso_data]['particles']['m3']['atmo']
+        if 'particles' in raw_values[iso_data]:
+            particles_over_time[that_date] = raw_values[iso_data]['particles']['m3']['atmo']
 
     fig, ax = plt.subplots()
     ax.set_xlabel("Time")
@@ -100,20 +97,19 @@ def plot_particles(raw_values: dict, output="particles.png", day_only=True):
     if day_only:
         xformatter = mdates.DateFormatter('%H:%M')
         plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
-    plt.savefig(output, dpi=__dpi)
+    plt.savefig(output, dpi=dpi)
 
 
-def plot_gas(raw_values, output="gases.png", day_only=True):
+def plot_gas(raw_values, output="gases.png", day_only=True, dpi=300):
     gases_over_time = {}
     approx_over_time = {}
     for iso_data in raw_values:
         that_date = datetime.fromisoformat(iso_data)
-        if that_date > datetime.combine(__time_gate, time()):
-            gases_over_time[that_date] = raw_values[iso_data]['gas']
-            if 'approx_gas' in raw_values[iso_data]:
-                approx_over_time[that_date] = raw_values[iso_data]['approx_gas']
-            else:
-                approx_over_time[that_date] = {"NO2": 0.0, "CO": 0.0, "NH3": 0.0}
+        gases_over_time[that_date] = raw_values[iso_data]['gas']
+        if 'approx_gas' in raw_values[iso_data]:
+            approx_over_time[that_date] = raw_values[iso_data]['approx_gas']
+        else:
+            approx_over_time[that_date] = {"NO2": 0.0, "CO": 0.0, "NH3": 0.0}
 
     fig, (ax1, ax2) = plt.subplots(2, 1, constrained_layout=True)
     ax1.set_xlabel("Time")
@@ -148,15 +144,14 @@ def plot_gas(raw_values, output="gases.png", day_only=True):
         xformatter = mdates.DateFormatter('%H:%M')
         plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
         plt.gcf().axes[1].xaxis.set_major_formatter(xformatter)
-    plt.savefig(output, dpi=__dpi)
+    plt.savefig(output, dpi=dpi)
 
 
-def plot_light(raw_values: dict, output="light.png", day_only=True):
+def plot_light(raw_values: dict, output="light.png", day_only=True, dpi=300):
     light_over_time = {}
     for iso_data in raw_values:
         that_date = datetime.fromisoformat(iso_data)
-        if that_date > datetime.combine(__time_gate, time()):
-            light_over_time[that_date] = raw_values[iso_data]['light']
+        light_over_time[that_date] = raw_values[iso_data]['light']
 
     fig, ax1 = plt.subplots()
     ax1.set_xlabel("Time")
@@ -172,7 +167,7 @@ def plot_light(raw_values: dict, output="light.png", day_only=True):
     if day_only:
         xformatter = mdates.DateFormatter('%H:%M')
         plt.gcf().axes[0].xaxis.set_major_formatter(xformatter)
-    plt.savefig(output, dpi=__dpi)
+    plt.savefig(output, dpi=dpi)
 
 
 def _calc_approx_gas(gas_readings: dict):
@@ -211,12 +206,25 @@ if __name__ == "__main__":
     except sqlite3.OperationalError:
         logger.error("Found local database but couldnt load the sqlite file")
         exit(2)
-    raw_data = local_db.fetch_by_aoe_date(datetime.today(), 3600*48)  # last 24 hours
+
+    limit_date_display = True
+    days = 2
+    args = sys.argv
+    if len(args) > 2 and args[1] == "days":  # argparse is a think
+        try:
+            days = int(args[2])
+            days = days*2
+            if days > 2:
+                limit_date_display = False
+        except ValueError:
+            days = 2
+
+    print(f"Querying database for all data from {datetime.today().isoformat()[:16]} till {(datetime.today()-timedelta(seconds=3600*24*int(days/2))).isoformat()[:16]}")
+    raw_data = local_db.fetch_by_aoe_date(datetime.today(), 3600*24*days)  # last 24 hours
     # calculating the approximation of gas that is not written into the database
     for key in raw_data:
         raw_data[key]['approx_gas'] = _calc_approx_gas(raw_data[key]['gas'])
-    plot_weather(raw_data)
-    plot_particles(raw_data)
-    plot_gas(raw_data)
-    plot_light(raw_data)
-
+    plot_weather(raw_data, day_only=limit_date_display)
+    plot_particles(raw_data, day_only=limit_date_display)
+    plot_gas(raw_data, day_only=limit_date_display)
+    plot_light(raw_data, day_only=limit_date_display)

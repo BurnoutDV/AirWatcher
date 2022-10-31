@@ -98,3 +98,4 @@ if __name__ == "__main__":
     epoch = time_ns()
     print(audio_sparklines("../rose_mono.wav", skip=1))
     print(f"Elapsed: {int((time_ns()-epoch)/1000000)}ms")
+
